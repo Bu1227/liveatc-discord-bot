@@ -1,12 +1,12 @@
-import { VoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus, joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
+import { VoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus, StreamType, getVoiceConnection } from '@discordjs/voice';
 import { Logger } from './logger';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as cheerio from 'cheerio';
 
 export class LiveATC {
     private static readonly BASE_URL = 'https://www.liveatc.net/';
-    private static readonly STREAM_URL = 'https://www.liveatc.net/play/';
     private static readonly CACHE_DIR = path.join(process.cwd(), 'cache');
     private static readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 小時
 
@@ -28,10 +28,18 @@ export class LiveATC {
             }
 
             // 從 liveatc.net 獲取實際的串流 URL
-            const response = await axios.get(`${this.BASE_URL}search/?q=${airport}`);
-            // 這裡需要解析 HTML 來獲取實際的串流 URL
-            // 這是一個簡化的示例
-            const streamUrl = `${this.STREAM_URL}${airport}${frequency ? `_${frequency}` : ''}`;
+            const response = await axios.get(`${this.BASE_URL}feed.php?icao=${airport}${frequency ? `&freq=${frequency}` : ''}`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
+
+            const $ = cheerio.load(response.data as string);
+            const streamUrl = $('source').attr('src');
+
+            if (!streamUrl) {
+                throw new Error('找不到串流 URL');
+            }
 
             // 儲存到快取
             await this.ensureCacheDir();
@@ -72,11 +80,15 @@ export class LiveATC {
             // 創建音頻資源
             const resource = createAudioResource(streamUrl, {
                 inlineVolume: true,
+                inputType: StreamType.Arbitrary,
                 metadata: {
                     title: `${airport}${frequency ? ` - ${frequency}` : ''}`,
                     source: 'liveatc.net'
                 }
             });
+
+            // 設置音量
+            resource.volume?.setVolume(0.5);
 
             // 播放音頻
             player.play(resource);
@@ -122,13 +134,22 @@ export class LiveATC {
             }
 
             // 從 liveatc.net 搜尋機場
-            const response = await axios.get(`${this.BASE_URL}search/?q=${query}`);
-            // 這裡需要解析 HTML 來獲取搜尋結果
-            // 這是一個簡化的示例
-            const results = [
-                { code: 'KJFK', name: 'John F. Kennedy International Airport' },
-                { code: 'EHAM', name: 'Amsterdam Airport Schiphol' }
-            ];
+            const response = await axios.get(`${this.BASE_URL}search/?q=${query}`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
+
+            const $ = cheerio.load(response.data as string);
+            const results: Array<{ code: string; name: string }> = [];
+
+            $('.airport').each((_: number, element: cheerio.Element) => {
+                const code = $(element).find('.code').text().trim();
+                const name = $(element).find('.name').text().trim();
+                if (code && name) {
+                    results.push({ code, name });
+                }
+            });
 
             // 儲存到快取
             await this.ensureCacheDir();
@@ -156,13 +177,22 @@ export class LiveATC {
             }
 
             // 從 liveatc.net 獲取頻率列表
-            const response = await axios.get(`${this.BASE_URL}search/?q=${airport}`);
-            // 這裡需要解析 HTML 來獲取頻率列表
-            // 這是一個簡化的示例
-            const frequencies = [
-                { frequency: '121.5', description: 'Emergency Frequency' },
-                { frequency: '118.1', description: 'Tower' }
-            ];
+            const response = await axios.get(`${this.BASE_URL}feed.php?icao=${airport}`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
+
+            const $ = cheerio.load(response.data as string);
+            const frequencies: Array<{ frequency: string; description: string }> = [];
+
+            $('.frequency').each((_: number, element: cheerio.Element) => {
+                const frequency = $(element).find('.freq').text().trim();
+                const description = $(element).find('.desc').text().trim();
+                if (frequency && description) {
+                    frequencies.push({ frequency, description });
+                }
+            });
 
             // 儲存到快取
             await this.ensureCacheDir();

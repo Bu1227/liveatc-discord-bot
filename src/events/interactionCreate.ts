@@ -15,7 +15,16 @@ export default new Event<'interactionCreate'>({
             await command.execute(interaction);
         } catch (error) {
             Logger.error(`執行指令時發生錯誤: ${error}`);
-            await interaction.reply('執行指令時發生錯誤，請稍後再試！');
+            
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ content: '執行指令時發生錯誤，請稍後再試！', ephemeral: true });
+                } else {
+                    await interaction.reply({ content: '執行指令時發生錯誤，請稍後再試！', ephemeral: true });
+                }
+            } catch (replyError) {
+                Logger.error(`回覆錯誤訊息時發生錯誤: ${replyError}`);
+            }
         }
     }
 });
