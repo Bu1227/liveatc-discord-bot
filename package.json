@@ -1,0 +1,35 @@
+{
+  "name": "liveatc-bot",
+  "version": "1.0.0",
+  "description": "liveatc discord bot",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "bun run build && node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "deploy": "ts-node src/deploy-commands.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.18.0",
+    "@types/axios": "^0.9.36",
+    "@types/winston": "^2.4.4",
+    "axios": "^1.9.0",
+    "discord.js": "^14.19.2",
+    "dotenv": "^16.5.0",
+    "ffmpeg-static": "^5.2.0",
+    "opusscript": "^0.0.8",
+    "sodium-native": "^5.0.1",
+    "winston": "^3.17.0"
+  }
+}
